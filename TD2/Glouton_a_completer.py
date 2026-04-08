@@ -476,7 +476,20 @@ def reconstruire_chemin(parent, depart, arrivee):
     # - remonter les parents jusqu'à None
     # - inverser la liste
     # - vérifier que le premier noeud est depart
-    pass
+    # pass
+
+    chemin = []
+    cur = arrivee
+    while cur is not None:
+        chemin.append(cur)
+        if cur == depart:
+            break
+        cur = parent.get(cur, None)
+
+    if not chemin or chemin[-1] != depart:
+        return None
+
+    return chemin[::-1]
 
 # ============================================================
 # 5) PINGOUIN (SPRITES DESSINÉS)
