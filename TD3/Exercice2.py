@@ -304,166 +304,112 @@ def heuristique_manhattan(a, b):
 
 def astar_initialiser(depart, arrivee):
     """
-    Initialise l'état d'une recherche informée.
-
-    ⚠️ IMPORTANT — CHOIX D'ALGO :
-      - Glouton (GBFS) : priorité = h(n)
-      - A*            : priorité = g(n) + h(n)
-
-    Structure attendue de l'état :
-        {
-            "pq": priority queue (heapq),
-            "visite": set (closed set),
-            "frontiere": set (open set),
-            "parent": dict (arbre des parents),
-            "g": dict (coût depuis départ),
-            "courant": None ou (r,c),
-            "termine": bool,
-            "trouve": bool,
-        }
-
-    Args:
-        depart (tuple[int,int]): case de départ.
-        arrivee (tuple[int,int]): case objectif.
-
-    Returns:
-        dict: état initial de l'algorithme.
+    Initialisation du recuit simulé.
     """
-    # TODO
-    # - initialiser la priority queue
-    # - définir g(depart) = 0
-    # - calculer h(depart)
-    # - choisir la priorité :
-    #     * glouton : prio = h
-    #     * A*      : prio = g + h
-    # - insérer le départ dans la PQ
-    # - initialiser visite, frontiere, parent, flags
-    
-    g = {depart: 0}
-    parent = {depart: None}
-    visite = set()
 
     return {
-        "g": g,
-        "T" : 5000,
-        "T_min": 300,
-        "alpha" : 0.920,
-        "u" : 0.948,
-        "parent": parent,
-        "visite": visite,
+        "T": 250.0,
+        "T_min": 0.15,
+        "alpha": 0.992,
+
         "courant": depart,
         "h_courant": heuristique_manhattan(depart, arrivee),
+
+        "visite": set(),
+        "frontiere": set(),
+
+        "parent": {depart: None},
+        "g": {depart: 0},
+
         "termine": False,
         "trouve": False,
+
+        "iterations": 0,
+        "max_iterations": 10000,
     }
 
 def astar_faire_une_etape(grille, etat, arrivee, couts):
     """
-    Effectue UNE itération de l'algorithme (glouton ou A*).
-
-    Étapes attendues :
-      1) Arrêt si l'algo est terminé
-      2) Purge des entrées périmées de la priority queue
-      3) Extraction du noeud de priorité minimale
-      4) Test d'arrivée
-      5) Relaxation des voisins
-
-    Rappel :
-      heapq ne supporte pas decrease-key,
-      donc on réinsère et on ignore les entrées obsolètes.
-
-    Args:
-        grille (list[str]): labyrinthe.
-        etat (dict): état courant de l'algorithme.
-        arrivee (tuple[int,int]): case objectif.
-        couts (dict): coûts d'entrée par case.
-
-    Returns:
-        None
+    Une étape de recuit simulé.
     """
-    # TODO
-    # 1) Si etat["termine"] : return
-    #
-    # 2) Tant que la PQ n'est pas vide :
-    #    - regarder le noeud en tête
-    #    - ignorer s'il est déjà visité
-    #    - ignorer s'il correspond à un g obsolète
-    #
-    # 3) Si la PQ est vide :
-    #    - terminer l'algorithme (termine=True, trouve=False)
-    #
-    # 4) Extraire le noeud courant
-    #    - maj visite / frontiere / courant
-    #
-    # 5) Si courant == arrivee :
-    #    - termine=True, trouve=True
-    #
-    # 6) Pour chaque voisin traversable :
-    #    - calculer new_g
-    #    - si amélioration :
-    #         * maj g[nxt]
-    #         * maj parent[nxt]
-    #         * calculer h(nxt)
-    #         * choisir priorité :
-    #             - glouton : h
-    #             - A*      : new_g + h
-    #         * push dans la PQ
-    
+
     if etat["termine"]:
         return
 
-    g = etat["g"]
-    parent = etat["parent"]
-    visite = etat["visite"]
     courant = etat["courant"]
-    T = etat["T"]
-    alpha = etat["alpha"]
-    T_min = etat["T_min"]
-    h_courant = etat["h_courant"]
 
-    visite.add(courant)
+    if courant is None:
+        etat["termine"] = True
+        etat["trouve"] = False
+        return
 
     if courant == arrivee:
         etat["termine"] = True
         etat["trouve"] = True
         return
 
-    voisins_disponibles = [
-        (rr, cc) for rr, cc, _ in voisins_4(grille, *courant)
-        if (rr, cc) not in visite
-    ]
+    etat["iterations"] += 1
 
-    if not voisins_disponibles:
-        etat["courant"] = None
+    if etat["iterations"] > etat["max_iterations"]:
         etat["termine"] = True
         etat["trouve"] = False
         return
-    
-    candidat = random.choice(voisins_disponibles)
 
+    T = etat["T"]
+
+    if T <= etat["T_min"]:
+        etat["termine"] = True
+        etat["trouve"] = False
+        return
+
+    visite = etat["visite"]
+    parent = etat["parent"]
+    g = etat["g"]
+
+    visite.add(courant)
+
+    voisins = [
+        (rr, cc)
+        for rr, cc, _ in voisins_4(grille, *courant)
+    ]
+
+    if not voisins:
+        etat["termine"] = True
+        etat["trouve"] = False
+        return
+
+    etat["frontiere"] = set(voisins) - visite
+
+    candidat = random.choice(voisins)
+
+    h_courant = heuristique_manhattan(courant, arrivee)
     h_candidat = heuristique_manhattan(candidat, arrivee)
+
     delta = h_candidat - h_courant
 
-    if delta < 0:
+    accepte = False
+
+    if delta <= 0:
         accepte = True
     else:
-        p = math.exp(-delta / T)
-        u = etat["u"]
-        accepte = p > u
+        proba = math.exp(-delta / T)
+
+        if random.random() < proba:
+            accepte = True
 
     if accepte:
-        cout_candidat = cout_case(couts, candidat)
-        g[candidat] = g[courant] + cout_candidat
-        parent[candidat] = courant
+
+        cout_transition = cout_case(couts, candidat)
+        nouveau_g = g[courant] + cout_transition
+
+        if candidat not in g or nouveau_g < g[candidat]:
+            g[candidat] = nouveau_g
+            parent[candidat] = courant
+
         etat["courant"] = candidat
         etat["h_courant"] = h_candidat
 
-    T *= alpha
-    etat["T"] = T
-
-    if T < T_min:
-        etat["termine"] = True
-        etat["trouve"] = False
+    etat["T"] *= etat["alpha"]
 
 def reconstruire_chemin(parent, depart, arrivee):
     """
